@@ -193,11 +193,6 @@ class SarvamAIService:
         """
         self.reload_config()
 
-        if not self.is_live:
-            err_msg = "[SARVAM LLM ERROR] SARVAM_API_KEY is missing or invalid in .env! Cannot perform real LLM diagnosis."
-            logger.error(err_msg)
-            raise ValueError(err_msg)
-
         user_msg = conversation_history[-1]["content"] if conversation_history else ""
         lang_name = LANGUAGE_NAMES.get(language_code, "Hindi (हिन्दी)")
         normalized_mode = assistant_mode.upper().strip()
@@ -225,7 +220,8 @@ class SarvamAIService:
             "किस समय",
             "तारीख चुन ली गई",
             "समय चुन लिया गया",
-            "घर पर लेना चाहेंगे या डीलरशिप पर",
+            "अपने घर पर लेना चाहेंगे",
+            "चुनी हुई डीलरशिप पर",
             "बुकिंग किस नाम से करनी है",
             "मोबाइल नंबर बताइए",
             "पूरा पता बताइए",
@@ -272,6 +268,11 @@ class SarvamAIService:
                 "steps": [],
                 "full_text": fallback,
             }
+
+        if not self.is_live:
+            err_msg = "[SARVAM LLM ERROR] SARVAM_API_KEY is missing or invalid in .env! Cannot perform real LLM diagnosis."
+            logger.error(err_msg)
+            raise ValueError(err_msg)
 
         print("\n" + "="*80)
         logger.info(f"🧠 [SARVAM LLM REQUEST] Sending prompt to Sarvam AI LLM")
@@ -752,6 +753,17 @@ All user-facing strings must be in {lang_name}."""
             )
             return f"{value.day} {hindi_months[value.month]} {value.year}"
         return value.strftime("%d %B %Y")
+
+    @staticmethod
+    def _format_booking_time(value: str, language_code: str) -> str:
+        if language_code.lower().startswith("hi"):
+            return {
+                "10:00 AM": "सुबह 10 बजे",
+                "12:00 PM": "दोपहर 12 बजे",
+                "02:00 PM": "दोपहर 2 बजे",
+                "04:00 PM": "शाम 4 बजे",
+            }.get(value, value)
+        return value
 
     @staticmethod
     def _message_has_booking_time(text: str, translated_text: str = "") -> bool:
@@ -1270,13 +1282,22 @@ All user-facing strings must be in {lang_name}."""
                         )
 
                     if not selected_location:
+                        formatted_time = SarvamAIService._format_booking_time(
+                            selected_time,
+                            language_code,
+                        )
                         return (
-                            f"{formatted_date} को {selected_time} का समय चुन लिया गया है। "
-                            "आप टेस्ट ड्राइव घर पर लेना चाहेंगे या डीलरशिप पर?"
+                            f"{formatted_date} को {formatted_time} का समय चुन लिया गया है। "
+                            "क्या आप टेस्ट ड्राइव अपने घर पर लेना चाहेंगे, "
+                            f"या {selected_dealer.get('name')} पर आकर?"
                         )
 
                     location_text = (
                         "घर पर" if selected_location == "HOME" else "डीलरशिप पर"
+                    )
+                    formatted_time = SarvamAIService._format_booking_time(
+                        selected_time,
+                        language_code,
                     )
                     if not selected_customer_name:
                         if awaiting_name:
@@ -1285,7 +1306,7 @@ All user-facing strings must be in {lang_name}."""
                                 "कृपया अपना पूरा नाम बताइए?"
                             )
                         return (
-                            f"{formatted_date} को {selected_time} पर {location_text} "
+                            f"{formatted_date} को {formatted_time} {location_text} "
                             "टेस्ट ड्राइव चुन ली गई है। बुकिंग किस नाम से करनी है?"
                         )
 

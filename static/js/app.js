@@ -40,12 +40,19 @@ document.addEventListener('DOMContentLoaded', () => {
     let playbackToken = 0;
     let bargeInSpeechStart = null;
     let bargeInArmTimeout = null;
+    let vadNoiseFloor = 2;
+    let vadSpeechFrames = 0;
+    let lastSpeechTimestamp = null;
 
-    const SILENCE_DURATION_THRESHOLD = 650;  // Fast turn-taking without clipping the last word
-    const SPEECH_ENERGY_THRESHOLD = 15;     // Energy threshold for speech onset
-    const BARGE_IN_ENERGY_THRESHOLD = 22;   // Higher threshold avoids TTS speaker echo
-    const BARGE_IN_HOLD_MS = 200;            // Require sustained speech before interrupting
-    const BARGE_IN_GRACE_MS = 600;           // Let Safari begin playback before monitoring
+    const SILENCE_DURATION_THRESHOLD = 480;  // End the turn shortly after the final word
+    const VAD_MIN_SPEECH_RMS = 4.5;          // Avoid treating quiet room noise as speech
+    const VAD_MIN_END_RMS = 3.0;             // Keep soft word endings without a long hangover
+    const VAD_NOISE_MARGIN = 2.5;            // Adaptive margin over the measured room noise
+    const VAD_END_MARGIN = 1.2;
+    const VAD_SPEECH_ONSET_FRAMES = 2;       // 80 ms at the 40 ms VAD interval
+    const BARGE_IN_ENERGY_THRESHOLD = 18;    // Higher threshold avoids TTS speaker echo
+    const BARGE_IN_HOLD_MS = 160;            // Require sustained speech before interrupting
+    const BARGE_IN_GRACE_MS = 450;           // Let playback begin before monitoring
 
     // ── DOM Elements ──
     const orb            = document.getElementById('orb');
@@ -765,7 +772,10 @@ document.addEventListener('DOMContentLoaded', () => {
     function setupVADAnalyser(stream) {
         if (analyserNode) analyserNode.disconnect();
         analyserNode = audioCtx.createAnalyser();
-        analyserNode.fftSize = 64;
+        analyserNode.fftSize = 256;
+        // The default 0.8 smoothing keeps old speech energy alive for seconds.
+        // A short smoothing window lets end-of-speech detection react promptly.
+        analyserNode.smoothingTimeConstant = 0.12;
         const source = audioCtx.createMediaStreamSource(stream);
         source.connect(analyserNode);
         drawLevelMeter();
@@ -800,6 +810,9 @@ document.addEventListener('DOMContentLoaded', () => {
         audioChunks = [];
         speechDetected = false;
         silenceStartTimestamp = null;
+        vadNoiseFloor = 2;
+        vadSpeechFrames = 0;
+        lastSpeechTimestamp = null;
         setPhase('listening');
 
         const supportedMimeType = [
@@ -810,13 +823,15 @@ document.addEventListener('DOMContentLoaded', () => {
         ].find(type => MediaRecorder.isTypeSupported(type));
         const options = supportedMimeType ? { mimeType: supportedMimeType } : {};
         mediaRecorder = new MediaRecorder(micStream, options);
+        const recorder = mediaRecorder;
 
-        mediaRecorder.ondataavailable = e => {
+        recorder.ondataavailable = e => {
             if (e.data.size > 0) audioChunks.push(e.data);
         };
 
-        mediaRecorder.onstop = async () => {
+        recorder.onstop = async () => {
             if (vadCheckInterval) clearInterval(vadCheckInterval);
+            vadCheckInterval = null;
             if (maxRecordingTimeout) {
                 clearTimeout(maxRecordingTimeout);
                 maxRecordingTimeout = null;
@@ -824,7 +839,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!isRunning) return;
 
             const blob = new Blob(audioChunks, {
-                type: mediaRecorder.mimeType || supportedMimeType || 'application/octet-stream'
+                type: recorder.mimeType || supportedMimeType || 'application/octet-stream'
             });
             if (blob.size > 1200 && speechDetected) {
                 setPhase('thinking');
@@ -844,7 +859,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Safari produces fragmented MP4 chunks when a timeslice is supplied.
         // Let MediaRecorder emit one complete, readable file when stop() is called.
-        mediaRecorder.start();
+        recorder.start();
 
         if (vadCheckInterval) clearInterval(vadCheckInterval);
         vadCheckInterval = setInterval(checkVADVolume, 40);
@@ -883,21 +898,67 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (phase === 'speaking' || phase === 'thinking') return;
 
-        if (avgEnergy > SPEECH_ENERGY_THRESHOLD) {
-            if (!speechDetected) {
+        const timeDomain = new Uint8Array(analyserNode.fftSize);
+        analyserNode.getByteTimeDomainData(timeDomain);
+        let squareSum = 0;
+        for (let i = 0; i < timeDomain.length; i++) {
+            const centered = timeDomain[i] - 128;
+            squareSum += centered * centered;
+        }
+        const rmsEnergy = Math.sqrt(squareSum / timeDomain.length);
+        const speechThreshold = Math.max(
+            VAD_MIN_SPEECH_RMS,
+            vadNoiseFloor + VAD_NOISE_MARGIN
+        );
+        const endThreshold = Math.max(
+            VAD_MIN_END_RMS,
+            vadNoiseFloor + VAD_END_MARGIN
+        );
+        const now = Date.now();
+
+        if (!speechDetected) {
+            if (rmsEnergy > speechThreshold) {
+                vadSpeechFrames++;
+            } else {
+                vadSpeechFrames = 0;
+                // Learn the current room level only while speech has not started.
+                vadNoiseFloor = Math.min(
+                    8,
+                    Math.max(1, (vadNoiseFloor * 0.9) + (rmsEnergy * 0.1))
+                );
+            }
+
+            if (vadSpeechFrames >= VAD_SPEECH_ONSET_FRAMES) {
                 speechDetected = true;
+                lastSpeechTimestamp = now;
+                silenceStartTimestamp = null;
                 setPhase('hearing');
             }
+            return;
+        }
+
+        if (rmsEnergy > endThreshold) {
+            lastSpeechTimestamp = now;
             silenceStartTimestamp = null;
-        } else if (speechDetected) {
-            if (!silenceStartTimestamp) {
-                silenceStartTimestamp = Date.now();
-            } else if (Date.now() - silenceStartTimestamp > SILENCE_DURATION_THRESHOLD) {
-                // Driver stopped speaking -> finish turn!
+            return;
+        }
+
+        if (!silenceStartTimestamp) {
+            silenceStartTimestamp = now;
+        }
+        if (
+            lastSpeechTimestamp
+            && now - lastSpeechTimestamp >= SILENCE_DURATION_THRESHOLD
+        ) {
+            // Stop the listening UI immediately; MediaRecorder then flushes
+            // the complete browser audio file before the API request starts.
+            setPhase('thinking');
+            if (vadCheckInterval) {
                 clearInterval(vadCheckInterval);
-                if (mediaRecorder && mediaRecorder.state === 'recording') {
-                    mediaRecorder.stop();
-                }
+                vadCheckInterval = null;
+            }
+            if (mediaRecorder && mediaRecorder.state === 'recording') {
+                mediaRecorder.stop();
             }
         }
     }
