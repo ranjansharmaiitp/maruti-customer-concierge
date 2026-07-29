@@ -248,11 +248,14 @@ def _auto_finalize_test_drive(
     confirmation = (
         f"आपकी टेस्ट ड्राइव बुकिंग आईडी {booking['reference_id']} है। "
         "यही बुकिंग जानकारी आपको आपके रजिस्टर्ड मोबाइल नंबर पर एस एम एस "
-        "के माध्यम से भी मिलेगी।"
+        "के माध्यम से भी मिलेगी। टेस्ट ड्राइव के समय अपना मूल ड्राइविंग लाइसेंस "
+        "और मूल आधार या पैन कार्ड साथ रखिए। आपका धन्यवाद।"
         if language_code.lower().startswith("hi")
         else (
             f"Your test-drive booking ID is {booking['reference_id']}. "
-            "You will also receive the booking details by SMS on your registered mobile number."
+            "You will also receive the booking details by SMS on your registered mobile number. "
+            "Please keep your original driving licence and original Aadhaar or PAN card ready "
+            "for the test drive. Thank you."
         )
     )
     booking["confirmation_message"] = confirmation

@@ -209,6 +209,9 @@ class SalesWorkflowRegressionTests(unittest.TestCase):
         self.assertTrue(diagnostic_result["booking_complete"])
         self.assertIn("TD-TEST1234", diagnostic_result["summary"])
         self.assertIn("एस एम एस", diagnostic_result["summary"])
+        self.assertIn("मूल ड्राइविंग लाइसेंस", diagnostic_result["summary"])
+        self.assertIn("मूल आधार या पैन कार्ड", diagnostic_result["summary"])
+        self.assertTrue(diagnostic_result["summary"].endswith("आपका धन्यवाद।"))
         auto_booked_sessions.pop(session_id, None)
 
 

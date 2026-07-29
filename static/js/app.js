@@ -1186,7 +1186,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const playBtn = document.getElementById(`${audioId}_btn`);
         if (playBtn) {
-            playBtn.addEventListener('click', () => playAudio(data.audio_b64, summary, playBtn, data.audio_url));
+            playBtn.addEventListener('click', () => playAudio(
+                data.audio_b64,
+                summary,
+                playBtn,
+                data.audio_url,
+                Boolean(data.booking_complete)
+            ));
         }
         const bookBtn = bubble.querySelector('.btn-book-expert-inline');
         if (bookBtn) {
@@ -1197,8 +1203,15 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         if (data.audio_url || data.audio_b64) {
-            playAudio(data.audio_b64, summary, playBtn, data.audio_url);
+            playAudio(
+                data.audio_b64,
+                summary,
+                playBtn,
+                data.audio_url,
+                Boolean(data.booking_complete)
+            );
         }
+        else if (data.booking_complete) stopCall();
         else if (isRunning) startVADListeningTurn();
     }
 
@@ -1226,7 +1239,13 @@ document.addEventListener('DOMContentLoaded', () => {
         }, BARGE_IN_GRACE_MS);
     }
 
-    async function playAudio(b64, fallback, btn, audioUrl = null) {
+    async function playAudio(
+        b64,
+        fallback,
+        btn,
+        audioUrl = null,
+        stopAfterPlayback = false
+    ) {
         const token = ++playbackToken;
         setPhase('speaking');
         bargeInSpeechStart = null;
@@ -1253,6 +1272,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 vadCheckInterval = null;
             }
             if (btn) btn.innerHTML = '<i class="fa-solid fa-play"></i>';
+            if (stopAfterPlayback) {
+                stopCall();
+                return;
+            }
             if (isRunning) {
                 startVADListeningTurn();
             } else {
