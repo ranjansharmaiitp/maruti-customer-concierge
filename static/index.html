@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Maruti Customer Concierge – Voice Support & Test Drives</title>
+    <meta name="description" content="AI-powered Maruti customer support, car information, dealer availability and guided test-drive booking.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="/static/css/style.css?v=20260729-2">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🚗</text></svg>" />
+</head>
+<body>
+<div class="voice-app-shell">
+
+    <!-- ════════════════ HEADER ════════════════ -->
+    <header class="app-header">
+        <div class="header-brand">
+            <div class="brand-title-row">
+                <i class="fa-solid fa-car-side brand-logo-icon"></i>
+                <h1 class="brand-title">Maruti Customer Concierge</h1>
+            </div>
+            <p class="sub-title">
+                Voice assistance, dealer inventory and guided test-drive booking. Powered by
+                <span id="model-badge">sarvam-30b</span>, Saaras and Bulbul.
+            </p>
+        </div>
+
+        <div class="header-actions">
+            <div id="api-status-badge" class="status-pill live">
+                <span class="pill-dot"></span>
+                <span id="api-status-text">LIVE &mdash; saaras:v3 | sarvam-30b | bulbul:v3</span>
+            </div>
+            <button id="btn-open-lookup" class="hdr-btn" title="Lookup Reference ID">
+                <i class="fa-solid fa-receipt"></i>
+                <span>LOOKUP REF</span>
+            </button>
+            <button id="btn-reset-session" class="hdr-btn" title="Reset Session">
+                <i class="fa-solid fa-power-off"></i>
+                <span>RESET</span>
+            </button>
+        </div>
+    </header>
+
+    <!-- ════════════════ MAIN STAGE ════════════════ -->
+    <main class="voice-main-stage">
+
+        <!-- ══ CENTRAL ORB SECTION ══ -->
+        <section class="orb-stage">
+            <button id="orb" data-phase="idle" aria-live="polite" title="Tap to start live voice call">
+                <span class="ring"></span>
+                <span class="ring delay"></span>
+                <span id="orb-label">Tap to talk</span>
+            </button>
+            <p id="status">Not connected</p>
+            <div class="meter"><span id="level"></span></div>
+        </section>
+
+        <!-- ══ CONTROLS SECTION ══ -->
+        <section class="controls-bar">
+            <div class="control-item">
+                <label for="language-select"><i class="fa-solid fa-language"></i> Language</label>
+                <div class="select-box">
+                    <select id="language-select">
+                        <option value="hi-IN" selected>🇮🇳 Hindi (हिन्दी)</option>
+                        <option value="en-IN">🌐 English (Indian)</option>
+                        <option value="ta-IN">🇮🇳 Tamil (தமிழ்)</option>
+                        <option value="te-IN">🇮🇳 Telugu (తెలుగు)</option>
+                        <option value="kn-IN">🇮🇳 Kannada (ಕನ್ನಡ)</option>
+                        <option value="mr-IN">🇮🇳 Marathi (मराठी)</option>
+                        <option value="bn-IN">🇮🇳 Bengali (বাংলা)</option>
+                        <option value="gu-IN">🇮🇳 Gujarati (ગુજરાતી)</option>
+                        <option value="ml-IN">🇮🇳 Malayalam (മലയാളം)</option>
+                        <option value="pa-IN">🇮🇳 Punjabi (ਪੰਜਾਬੀ)</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="control-item">
+                <label for="speaker-select"><i class="fa-solid fa-volume-high"></i> Voice</label>
+                <div class="select-box">
+                    <select id="speaker-select">
+                        <option value="ShubhMale" selected>Shubh (Male ♂)</option>
+                        <option value="ShreyaFemale">Shreya (Female ♀)</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="control-item check-item">
+                <label class="check-label">
+                    <input id="barge-in" type="checkbox" checked />
+                    <span><i class="fa-solid fa-hand-paper"></i> Let me interrupt</span>
+                </label>
+            </div>
+
+            <div class="control-item btn-group">
+                <button id="btn-trigger-test-drive" class="ctrl-btn primary">
+                    <i class="fa-solid fa-key"></i>
+                    <span>Book Maruti Test Drive</span>
+                </button>
+                <button id="btn-trigger-expert-modal" class="ctrl-btn secondary">
+                    <i class="fa-solid fa-calendar-check"></i>
+                    <span>Schedule Expert Call</span>
+                </button>
+                <button id="btn-reset-chat" class="ctrl-btn secondary">
+                    <i class="fa-solid fa-rotate-left"></i>
+                    <span>Clear chat</span>
+                </button>
+            </div>
+        </section>
+
+        <!-- ══ TRANSCRIPT & DIAGNOSTICS SECTION ══ -->
+        <section id="transcript" class="transcript-feed">
+            <div class="empty-state">
+                <i class="fa-solid fa-comment-dots empty-icon"></i>
+                <p class="empty">Start the conversation and your words will show up here.</p>
+                <div class="quick-symptoms-bar">
+                    <span class="symptom-preset" data-symptom="My check engine light came on and engine is vibrating.">Check Engine</span>
+                    <span class="symptom-preset" data-symptom="I hear a squeaking noise whenever I apply the brakes.">Brake Noise</span>
+                    <span class="symptom-preset" data-symptom="Engine temperature gauge is in the red and steam is coming out.">Overheating</span>
+                    <span class="symptom-preset" data-symptom="Car turns over slowly and won't start; battery light is on.">Dead Battery</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- ══ COMPOSER FORM ══ -->
+        <form id="composer" class="composer-form">
+            <input id="text-input" type="text" placeholder="…or type vehicle fault instead" autocomplete="off" />
+            <button type="submit" id="btn-send-text">
+                <span>Send</span>
+                <i class="fa-solid fa-paper-plane"></i>
+            </button>
+        </form>
+
+    </main>
+
+    <!-- ════════════════ FOOTER ════════════════ -->
+    <footer class="app-footer">
+        <span><i class="fa-solid fa-shield-halved"></i> Document numbers are not collected. Keep original driving licence and Aadhaar/PAN ready for the test drive.</span>
+        <span>Maruti Customer Concierge Demo © 2026</span>
+    </footer>
+
+</div>
+
+<!-- ════════════════ MODAL: MARUTI TEST DRIVE ════════════════ -->
+<div id="test-drive-modal-backdrop" class="hmi-modal-backdrop">
+    <div class="hmi-modal-content test-drive-modal card-animate">
+        <div class="hmi-modal-header">
+            <div>
+                <div class="hmi-modal-title">
+                    <i class="fa-solid fa-key text-amber"></i>
+                    <span>BOOK A MARUTI SUZUKI TEST DRIVE</span>
+                </div>
+                <p class="modal-subtitle">Choose a car, reserve a live dealer slot, and confirm your documents.</p>
+            </div>
+            <button id="btn-close-test-drive" class="hmi-modal-close" type="button" aria-label="Close test-drive booking"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+
+        <div class="booking-progress" aria-label="Booking progress">
+            <div class="booking-progress-item active" data-progress-step="1"><span>1</span><small>Car</small></div>
+            <div class="booking-progress-line"></div>
+            <div class="booking-progress-item" data-progress-step="2"><span>2</span><small>Slot</small></div>
+            <div class="booking-progress-line"></div>
+            <div class="booking-progress-item" data-progress-step="3"><span>3</span><small>Customer</small></div>
+            <div class="booking-progress-line"></div>
+            <div class="booking-progress-item" data-progress-step="4"><span>4</span><small>Confirm</small></div>
+        </div>
+
+        <form id="test-drive-form" class="hmi-modal-body" novalidate>
+            <section class="test-drive-step active" data-step="1">
+                <div class="step-heading">
+                    <span class="step-kicker">STEP 01</span>
+                    <h2>Select your Maruti and dealership</h2>
+                    <p>Dealerwise sale stock and test-drive fleet are loaded from SQLite.</p>
+                </div>
+                <div class="hmi-form-row">
+                    <div class="hmi-form-group">
+                        <label for="td-dealer"><i class="fa-solid fa-building"></i> Dealership *</label>
+                        <select id="td-dealer" class="hmi-modal-select" required>
+                            <option value="">Loading dealerships…</option>
+                        </select>
+                    </div>
+                    <div class="hmi-form-group">
+                        <label for="td-model"><i class="fa-solid fa-car"></i> Car model *</label>
+                        <select id="td-model" class="hmi-modal-select" required disabled>
+                            <option value="">Select a dealership first</option>
+                        </select>
+                    </div>
+                </div>
+                <div id="td-model-details" class="model-details-panel">
+                    <i class="fa-solid fa-circle-info"></i>
+                    Select a dealer and car to see model details, indicative price and stock.
+                </div>
+            </section>
+
+            <section class="test-drive-step" data-step="2">
+                <div class="step-heading">
+                    <span class="step-kicker">STEP 02</span>
+                    <h2>Choose date, time and test-drive location</h2>
+                    <p>Only slots with a test-drive vehicle available can be booked.</p>
+                </div>
+                <div class="hmi-form-row">
+                    <div class="hmi-form-group">
+                        <label for="td-date"><i class="fa-solid fa-calendar-day"></i> Test-drive date *</label>
+                        <input type="date" id="td-date" required>
+                    </div>
+                    <div class="hmi-form-group">
+                        <label for="td-time"><i class="fa-solid fa-clock"></i> Available time *</label>
+                        <select id="td-time" class="hmi-modal-select" required disabled>
+                            <option value="">Choose a date first</option>
+                        </select>
+                    </div>
+                </div>
+                <fieldset class="location-choice">
+                    <legend><i class="fa-solid fa-location-dot"></i> Where would you like the test drive? *</legend>
+                    <label class="location-option selected">
+                        <input type="radio" name="td-location" value="HOME" checked>
+                        <span class="location-icon"><i class="fa-solid fa-house"></i></span>
+                        <span><strong>At my home</strong><small>Dealer representative brings the car to your address.</small></span>
+                    </label>
+                    <label class="location-option">
+                        <input type="radio" name="td-location" value="DEALERSHIP">
+                        <span class="location-icon"><i class="fa-solid fa-building"></i></span>
+                        <span><strong>At dealership</strong><small>Visit the selected showroom for your drive.</small></span>
+                    </label>
+                </fieldset>
+                <div id="td-slot-status" class="slot-status"></div>
+            </section>
+
+            <section class="test-drive-step" data-step="3">
+                <div class="step-heading">
+                    <span class="step-kicker">STEP 03</span>
+                    <h2>Tell us who is taking the test drive</h2>
+                    <p>Your address is required for customer records and home test drives.</p>
+                </div>
+                <div class="hmi-form-row">
+                    <div class="hmi-form-group">
+                        <label for="td-name"><i class="fa-solid fa-user"></i> Full name *</label>
+                        <input type="text" id="td-name" placeholder="e.g. Rajesh Kumar" autocomplete="name" required>
+                    </div>
+                    <div class="hmi-form-group">
+                        <label for="td-mobile"><i class="fa-solid fa-phone"></i> Mobile number *</label>
+                        <input type="tel" id="td-mobile" placeholder="10-digit mobile number" autocomplete="tel" inputmode="numeric" required>
+                    </div>
+                </div>
+                <div class="hmi-form-group">
+                    <label for="td-email"><i class="fa-solid fa-envelope"></i> Email address (optional)</label>
+                    <input type="email" id="td-email" placeholder="you@example.com" autocomplete="email">
+                </div>
+                <div class="hmi-form-group">
+                    <label for="td-address"><i class="fa-solid fa-location-dot"></i> Address *</label>
+                    <input type="text" id="td-address" placeholder="House / flat, street and locality" autocomplete="street-address" required>
+                </div>
+                <div class="hmi-form-row three-col">
+                    <div class="hmi-form-group">
+                        <label for="td-city">City *</label>
+                        <input type="text" id="td-city" value="New Delhi" autocomplete="address-level2" required>
+                    </div>
+                    <div class="hmi-form-group">
+                        <label for="td-state">State *</label>
+                        <input type="text" id="td-state" value="Delhi" autocomplete="address-level1" required>
+                    </div>
+                    <div class="hmi-form-group">
+                        <label for="td-pincode">Pincode *</label>
+                        <input type="text" id="td-pincode" maxlength="6" inputmode="numeric" autocomplete="postal-code" required>
+                    </div>
+                </div>
+            </section>
+
+            <section class="test-drive-step" data-step="4">
+                <div class="step-heading">
+                    <span class="step-kicker">STEP 04</span>
+                    <h2>Review and confirm your test drive</h2>
+                    <p>The app does not collect driving licence, Aadhaar, or PAN numbers.</p>
+                </div>
+                <div class="privacy-notice">
+                    <i class="fa-solid fa-id-card"></i>
+                    <span>Keep your original driving licence and original Aadhaar or PAN available at the test drive. This applies at the dealership and at your home address.</span>
+                </div>
+                <div class="hmi-form-group">
+                    <label for="td-notes"><i class="fa-solid fa-message"></i> Notes for the dealer (optional)</label>
+                    <input type="text" id="td-notes" maxlength="500" placeholder="Variant, fuel or accessibility preference">
+                </div>
+                <div id="td-review" class="booking-review"></div>
+                <label class="consent-check">
+                    <input type="checkbox" id="td-consent" required>
+                    <span>I consent to the selected dealership contacting me about this test drive and confirm that the submitted information is correct.</span>
+                </label>
+            </section>
+
+            <div id="td-form-error" class="form-error" role="alert"></div>
+            <div class="hmi-modal-footer booking-footer">
+                <button type="button" id="td-back" class="hmi-btn-secondary" hidden>
+                    <i class="fa-solid fa-arrow-left"></i> BACK
+                </button>
+                <button type="button" id="td-next" class="hmi-btn-primary">
+                    NEXT <i class="fa-solid fa-arrow-right"></i>
+                </button>
+                <button type="submit" id="td-submit" class="hmi-btn-primary" hidden>
+                    <i class="fa-solid fa-circle-check"></i> CONFIRM TEST DRIVE
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- ════════════════ MODAL: SCHEDULE EXPERT CALL ════════════════ -->
+<div id="expert-modal-backdrop" class="hmi-modal-backdrop">
+    <div class="hmi-modal-content card-animate">
+        <div class="hmi-modal-header">
+            <div class="hmi-modal-title">
+                <i class="fa-solid fa-calendar-check text-amber"></i>
+                <span>SCHEDULE MASTER MECHANIC CALL</span>
+            </div>
+            <button id="btn-close-expert-modal" class="hmi-modal-close"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <form id="expert-booking-form" class="hmi-modal-body">
+            <div class="hmi-form-group">
+                <label><i class="fa-solid fa-user"></i> Driver / Customer Name</label>
+                <input type="text" id="booking-name" placeholder="e.g. Rajesh Kumar" required>
+            </div>
+            <div class="hmi-form-group">
+                <label><i class="fa-solid fa-phone"></i> Mobile Phone Number</label>
+                <input type="tel" id="booking-phone" placeholder="e.g. +91 98765 43210" required>
+            </div>
+            <div class="hmi-form-row">
+                <div class="hmi-form-group">
+                    <label><i class="fa-solid fa-calendar-day"></i> Preferred Date</label>
+                    <select id="booking-date" class="hmi-modal-select">
+                        <option value="Today">Today</option>
+                        <option value="Tomorrow">Tomorrow</option>
+                        <option value="Day After Tomorrow">Day After Tomorrow</option>
+                    </select>
+                </div>
+                <div class="hmi-form-group">
+                    <label><i class="fa-solid fa-clock"></i> Preferred Slot</label>
+                    <select id="booking-time" class="hmi-modal-select">
+                        <option value="Within 30 Minutes">Within 30 Minutes (Urgent)</option>
+                        <option value="Morning (10:00 AM - 12:00 PM)">Morning (10:00 AM - 12:00 PM)</option>
+                        <option value="Afternoon (02:00 PM - 05:00 PM)">Afternoon (02:00 PM - 05:00 PM)</option>
+                        <option value="Evening (06:00 PM - 08:00 PM)">Evening (06:00 PM - 08:00 PM)</option>
+                    </select>
+                </div>
+            </div>
+            <div class="hmi-form-group">
+                <label><i class="fa-solid fa-clipboard-question"></i> Issue Summary / Car Details</label>
+                <input type="text" id="booking-issue" placeholder="Autofilled from current diagnosis..." readonly>
+            </div>
+            <div class="hmi-modal-footer">
+                <button type="button" id="btn-cancel-expert-modal" class="hmi-btn-secondary">CANCEL</button>
+                <button type="submit" id="btn-submit-booking" class="hmi-btn-primary">
+                    <i class="fa-solid fa-check"></i>
+                    <span>CONFIRM & GENERATE REF ID</span>
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- ════════════════ MODAL: LOOKUP REFERENCE ID ════════════════ -->
+<div id="lookup-modal-backdrop" class="hmi-modal-backdrop">
+    <div class="hmi-modal-content card-animate">
+        <div class="hmi-modal-header">
+            <div class="hmi-modal-title">
+                <i class="fa-solid fa-receipt text-amber"></i>
+                <span>LOOKUP BOOKING REFERENCE ID</span>
+            </div>
+            <button id="btn-close-lookup-modal" class="hmi-modal-close"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div class="hmi-modal-body">
+            <div class="hmi-form-group">
+                <label><i class="fa-solid fa-barcode"></i> Enter Customer Reference ID</label>
+                <div class="hmi-search-row">
+                    <input type="text" id="lookup-ref-input" placeholder="e.g. TD-27821183 or REF-849204" style="text-transform: uppercase;">
+                    <button id="btn-search-ref" class="hmi-btn-primary"><i class="fa-solid fa-magnifying-glass"></i> SEARCH</button>
+                </div>
+            </div>
+            <div id="lookup-result-box" class="lookup-result-box"></div>
+        </div>
+    </div>
+</div>
+
+<!-- Hidden TTS Audio Player -->
+<audio id="tts-audio-player" style="display:none;"></audio>
+
+<script src="/static/js/app.js?v=20260729-14"></script>
+</body>
+</html>
