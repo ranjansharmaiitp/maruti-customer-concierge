@@ -9,6 +9,7 @@ data/*.db-*
 
 # Large local recordings
 *.mov
+!demo/demo.mov
 
 # Python
 __pycache__/

@@ -19,6 +19,10 @@ expert-callback mode.
 
 The UI is inspired by real automotive **HMI (Human-Machine Interface)** systems like Mahindra AdrenoX and Audi MMI — featuring a carbon fiber aesthetic, amber instrument cluster accents, and gauge-style controls.
 
+## 🎬 Demo
+
+[Watch the end-to-end voice booking demo](./demo/demo.mov)
+
 ---
 
 ## 📦 Assignment Deliverables Summary
