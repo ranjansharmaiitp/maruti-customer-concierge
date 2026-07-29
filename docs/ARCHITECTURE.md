@@ -1,137 +1,172 @@
-# 🏗️ Technical Architecture & System Design
-## **Car AI Doctor — Multilingual Voice & Agentic Vehicle Diagnostic Assistant**
+# Maruti Customer Concierge — Solution Architecture
 
-This document details the software architecture, data flow pipelines, API integration specs, and failure handling mechanisms for **Car AI Doctor**.
+## 1. Executive summary
 
----
+The Maruti Customer Concierge is a browser-based Hinglish voice assistant that converts a customer’s spoken intent into a confirmed test-drive booking. Sarvam AI provides the India-first voice layer: **Saaras v3** transcribes the customer and **Bulbul v3** speaks every reply. A FastAPI orchestration service maintains the conversation, applies a deterministic booking state machine, queries dealerwise SQLite inventory and availability, and creates the booking transaction.
 
-## 1. System Architecture Diagram
+The design deliberately separates **conversation** from **commitment**:
+
+- Natural language makes the experience accessible.
+- Deterministic validation controls model, dealership, date, time, location and customer-data transitions.
+- SQLite transactions protect slot capacity and generate an idempotent booking reference.
+- Sarvam TTS returns the confirmation and booking ID as speech.
+
+This hybrid pattern is appropriate for enterprise sales operations: generative AI can assist with open-ended questions, while inventory and booking actions remain grounded, observable and testable.
+
+## 2. System context
 
 ```mermaid
-graph TD
-    subgraph Client ["Frontend Layer (Browser / HMI Touchscreen)"]
-        UI[Automotive HMI UI - HTML5/CSS3]
-        JS[Client Engine - app.js]
-        REC[Web Audio API / MediaRecorder]
-        TTS_AUDIO[HTML5 Audio Player]
-    end
+flowchart LR
+    C["Customer<br/>Hinglish speech"] --> UI["Web voice client<br/>MediaRecorder + VAD + barge-in"]
+    UI -->|audio/webm| API["FastAPI orchestration"]
+    API -->|audio| STT["Sarvam Saaras v3<br/>Speech-to-Text"]
+    STT -->|transcript| API
 
-    subgraph Backend ["Backend Layer (FastAPI Application)"]
-        API[FastAPI Router - main.py]
-        SESS[Session History Manager]
-        BOOK[Booking & Dispatch Engine]
-        STORE[(In-Memory Session & Booking DB)]
-    end
+    API --> SM["Deterministic booking state machine<br/>extract · validate · advance"]
+    SM <--> DB[("SQLite<br/>dealers · models · fleet · slots<br/>customers · bookings")]
+    API -. optional free-form path .-> LLM["Sarvam Chat Completions<br/>sarvam-30b"]
 
-    subgraph Sarvam ["Sarvam AI Cloud Stack"]
-        STT["Sarvam STT API (saaras:v3)"]
-        LLM["Sarvam LLM API (sarvam-105b)"]
-        TTS["Sarvam TTS API (bulbul:v3)"]
-    end
+    API -->|spoken reply text| TTS["Sarvam Bulbul v3<br/>Text-to-Speech"]
+    TTS -->|WAV/base64| API
+    API -->|JSON + audio URL| UI
+    UI -->|audio| C
 
-    %% Flow interactions
-    UI -->|1. Click / Record Audio| REC
-    REC -->|2. Send speech.webm| JS
-    JS -->|3. POST /api/voice-transcribe| API
-
-    API -->|4. Speech-to-Text Request| STT
-    STT -->|5. Transcript Output| API
-
-    API -->|6. Conversation History + Prompt| LLM
-    LLM -->|7. Structured Diagnostic Output| API
-
-    API -->|8. Batched Sentences/Steps| TTS
-    TTS -->|9. Concatenated WAV Audio Base64| API
-
-    API -->|10. JSON Response| JS
-    JS -->|11. Render LED Checklist & Play Audio| UI
-    JS -->|12. Auto-Play Spoken Diagnosis| TTS_AUDIO
-
-    UI -->|13. Click 'Schedule Expert Call'| JS
-    JS -->|14. POST /api/book-expert| API
-    API -->|15. Store Booking & Gen Reference ID| BOOK
-    BOOK -->|16. Persist REF-XXXXXX| STORE
-    BOOK -->|17. Synthesize Confirmation Voice| TTS
-    API -->|18. Return Confirmation + Ref ID| JS
-    JS -->|19. Render Booking Card with Ref Badge| UI
+    DB --> BID["Confirmed booking<br/>TD-XXXXXXXX"]
+    BID --> API
+    API -. production adapter .-> SMS["SMS/CRM/DMS<br/>future integration"]
 ```
 
----
+## 3. Runtime components
 
-## 2. Component Specifications
+| Layer | Component | Responsibility |
+|---|---|---|
+| Experience | `static/index.html`, `static/js/app.js`, `static/css/style.css` | Browser UI, microphone capture, VAD, barge-in, conversation transcript, audio playback and booking confirmation |
+| API | `main.py` | FastAPI routes, session history, Sarvam calls, slot validation, automatic booking finalisation and audio caching |
+| Voice/AI | `sarvam_service.py` | Saaras v3 STT, Bulbul v3 TTS, Chat Completions for free-form paths, Hinglish normalisation and booking-state interpretation |
+| Data | `database.py` | SQLite schema, demo seeding, dealer/model/fleet context, availability lookup and transactional booking |
+| Regression | `tests/test_sales_workflow.py` | Protects model-alias and Dwarka dealer-selection transitions used in the demonstrated journey |
 
-### 2.1 Backend Layer (`main.py`)
-* **Framework:** FastAPI (Python 3.9+)
-* **Session Storage:** In-memory session store mapping `session_id` to conversational turns.
-* **Booking Engine:** Generates unique Customer Reference IDs (`REF-XXXXXX`), assigns Master Technicians, and formats confirmation messages.
-
-### 2.2 Sarvam AI Service Layer (`sarvam_service.py`)
-Encapsulates all communication with Sarvam AI REST endpoints:
-
-* **Speech-to-Text (`saaras:v3`):**
-  * **Endpoint:** `POST https://api.sarvam.ai/speech-to-text`
-  * **Header:** `api-subscription-key: <SARVAM_API_KEY>`
-  * **Payload:** `multipart/form-data` with `file`, `model="saaras:v3"`, `language_code`.
-
-* **Diagnostic LLM (`sarvam-105b`):**
-  * **Endpoint:** `POST https://api.sarvam.ai/v1/chat/completions`
-  * **Header:** `Authorization: Bearer <SARVAM_API_KEY>` *(Note: Bearer token auth required for 105b)*
-  * **Payload:** `model="sarvam-105b"`, `messages`, `temperature=0.1`, `max_tokens=2000`.
-  * **Timeout:** 60.0 seconds (handles deep reasoning passes).
-
-* **Text-to-Speech (`bulbul:v3`):**
-  * **Endpoint:** `POST https://api.sarvam.ai/text-to-speech`
-  * **Header:** `api-subscription-key: <SARVAM_API_KEY>`
-  * **Payload:** `model="bulbul:v3"`, `inputs` (max 3 inputs per request), `speaker`, `target_language_code`.
-  * **Multi-Chunk Merge:** Batches input lines into groups of 3, executes parallel/sequential requests, strips 44-byte WAV headers, concatenates raw PCM bytes, and re-encodes a single valid WAV file in base64.
-
----
-
-## 3. Sequence Diagram — Voice Triage & Expert Dispatch
+## 4. End-to-end booking sequence
 
 ```mermaid
 sequenceDiagram
     autonumber
-    actor Driver
-    participant HMI as Frontend (HMI Dashboard)
-    participant Server as FastAPI Server (main.py)
-    participant SarvamSTT as Sarvam STT (saaras:v3)
-    participant SarvamLLM as Sarvam LLM (sarvam-105b)
-    participant SarvamTTS as Sarvam TTS (bulbul:v3)
-    participant DB as Booking Store
+    actor Customer
+    participant Browser as Voice client
+    participant API as FastAPI
+    participant STT as Sarvam Saaras v3
+    participant Flow as Booking state machine
+    participant DB as SQLite
+    participant TTS as Sarvam Bulbul v3
 
-    Driver->>HMI: Press Microphone Gauge & Speak Symptoms
-    HMI->>Server: POST /api/voice-transcribe (audio.webm, lang, speaker)
-    Server->>SarvamSTT: Transcribe Audio (saaras:v3)
-    SarvamSTT-->>Server: Transcribed Text (e.g. "मेरी कार के इंजन से आवाज आ रही है")
+    Customer->>Browser: Speaks in Hinglish
+    Browser->>API: POST /api/voice-transcribe
+    API->>STT: Audio + hi-IN
+    STT-->>API: Transcript
+    API->>Flow: Transcript + session history
+    Flow->>DB: Read models, dealers and availability
+    DB-->>Flow: Grounded catalogue and slot data
+    Flow-->>API: One customer-facing reply + next missing field
+    API->>TTS: Reply text + selected voice
+    TTS-->>API: Synthesised audio
+    API-->>Browser: Transcript, reply, audio and state
+    Browser-->>Customer: Plays reply
 
-    Server->>SarvamLLM: Process Chat History + System Prompt (sarvam-105b)
-    SarvamLLM-->>Server: Raw Output (Urgency, Confidence, Hindi Steps)
+    loop Until required fields are complete
+        Customer->>Browser: Model / dealer / slot / details
+        Browser->>API: Next voice turn
+        API->>Flow: Validate and advance exactly one stage
+    end
 
-    Server->>SarvamTTS: Synthesize Diagnostic Steps (bulbul:v3 - Batched max 3)
-    SarvamTTS-->>Server: Base64 WAV Audio
-    Server-->>HMI: JSON (Urgency, Confidence Score, Steps, Summary, Audio Base64)
-
-    HMI->>Driver: Render HMI Diagnostic Card + Auto-play Spoken Audio
-
-    Driver->>HMI: Click "Schedule Master Mechanic Call"
-    HMI->>Server: POST /api/book-expert (Name, Phone, Preferred Slot)
-    Server->>DB: Store Booking & Generate `REF-849204`
-    Server->>SarvamTTS: Synthesize Confirmation Speech (bulbul:v3)
-    SarvamTTS-->>Server: Confirmation Audio Base64
-    Server-->>HMI: JSON (Status: Booked, Reference ID: REF-849204, Audio Base64)
-
-    HMI->>Driver: Render Confirmation Card with Reference ID & Speak Confirmation
+    Flow->>DB: BEGIN IMMEDIATE; re-check capacity
+    DB->>DB: Upsert customer; increment booked quantity; insert booking
+    DB-->>Flow: TD-XXXXXXXX
+    Flow-->>API: Booking confirmation
+    API->>TTS: Booking ID + SMS expectation
+    TTS-->>Browser: Confirmation audio
+    Browser-->>Customer: Speaks booking ID
 ```
 
----
+## 5. Deterministic booking state
 
-## 4. Failure & Resilience Handling
+The conversational state is inferred from the session history and advances in this order:
 
-| Potential Failure Point | Mitigation Strategy |
+```text
+MODEL
+  → DEALERSHIP
+  → DATE + TIME
+  → LOCATION (HOME | DEALERSHIP)
+  → CUSTOMER NAME
+  → MOBILE
+  → COMPLETE ADDRESS + PINCODE
+  → SLOT REVALIDATION
+  → CONFIRMED BOOKING ID
+```
+
+Important controls:
+
+- The assistant asks for one missing field at a time.
+- Known STT variants such as “ईवी टेरा” and “विटारा” resolve to `e VITARA`.
+- Hindi relative dates and spoken times are normalised before slot lookup.
+- Mobile numbers and pincodes are normalised from spoken digits and validated.
+- The selected slot is checked before customer details are collected and again inside the booking transaction.
+- A repeated final turn returns the existing confirmed booking instead of consuming capacity twice.
+- If a slot is full, the transaction rolls back and the customer is asked for another time.
+
+## 6. Data model
+
+```mermaid
+erDiagram
+    DEALERSHIPS ||--o{ DEALER_SALES_INVENTORY : holds
+    CAR_MODELS ||--o{ DEALER_SALES_INVENTORY : stocked_as
+    DEALERSHIPS ||--o{ TEST_DRIVE_VEHICLES : operates
+    CAR_MODELS ||--o{ TEST_DRIVE_VEHICLES : represented_by
+    DEALERSHIPS ||--o{ TEST_DRIVE_AVAILABILITY : publishes
+    CAR_MODELS ||--o{ TEST_DRIVE_AVAILABILITY : scheduled_for
+    CUSTOMERS ||--o{ TEST_DRIVE_BOOKINGS : creates
+    DEALERSHIPS ||--o{ TEST_DRIVE_BOOKINGS : fulfils
+    CAR_MODELS ||--o{ TEST_DRIVE_BOOKINGS : requested_for
+    TEST_DRIVE_AVAILABILITY ||--o{ TEST_DRIVE_BOOKINGS : reserves
+```
+
+The local demo seeds New Delhi and Dwarka dealerships, Maruti Arena/NEXA models, dealerwise sales inventory, test-drive vehicles and 30 days of datewise slot capacity. Booking writes update the customer record, reserve the selected slot and create a `TD-XXXXXXXX` reference in one transaction.
+
+## 7. API surface
+
+| Endpoint | Purpose |
 |---|---|
-| **LLM Timeout (>20s)** | Extended `httpx` async client timeout to **60.0 seconds** to accommodate deep multi-language reasoning passes. |
-| **TTS Input Limit Exceeded (>3 items)** | `sarvam_service.py` automatically batches inputs into groups of 3, executes multiple requests, and concatenates raw PCM audio chunks into one seamless base64 WAV. |
-| **Non-Standard LLM Output** | Dual-pass regex parser: matches `Step N:` / `चरण N:` patterns first, falls back to markdown bullet lists, and then Devanagari character block extraction. |
-| **Missing API Key** | App status endpoint `/api/health` detects configuration state and provides clear diagnostic messages in logs. |
-| **Microphone Denial** | Graceful UI fallback allows typed diagnostic inputs with full access to STT/LLM/TTS and Expert Dispatch workflows. |
+| `GET /api/assistant/welcome` | Generate the welcome text and Sarvam TTS audio |
+| `POST /api/voice-transcribe` | Run the complete audio → transcript → workflow → reply → audio turn |
+| `POST /api/chat` | Run the same workflow for typed input |
+| `GET /api/dealerships` | Return configured dealer locations |
+| `GET /api/cars` | Return dealerwise catalogue and demo inventory |
+| `GET /api/test-drive/availability` | Return remaining slot quantities for a model, dealer and date |
+| `POST /api/test-drive/bookings` | Create a transactional test-drive booking |
+| `GET /api/test-drive/bookings/{reference_id}` | Retrieve a booking |
+| `POST /api/test-drive/bookings/{reference_id}/cancel` | Cancel a booking and restore capacity |
+| `POST /api/tts` | Generate replay audio for a text response |
+| `GET /api/health` | Report service, model and database status |
+
+## 8. Security, privacy and operational controls
+
+- The Sarvam API key is supplied only through environment configuration and is excluded from Git.
+- Full driving-licence, Aadhaar and PAN numbers are not required by the voice workflow. The customer is reminded to keep originals available at the test drive.
+- Production should move session state from process memory to Redis and SQLite to a managed relational database.
+- Production should add authentication, rate limits, encryption at rest, audit logging, PII retention rules and consent evidence.
+- The current “SMS sent” message is a simulation. A real SMS/CRM adapter must record delivery status before making that assurance in production.
+- Observability should track STT failures, state retries, average turn latency, slot conflicts, booking completion and handoff rate.
+
+## 9. Deployment path
+
+For a pilot, package the FastAPI service as a container behind HTTPS, use managed Postgres for transactional data, Redis for conversation state, an object store for short-lived audio where required, and a secrets manager for Sarvam credentials. Connect the same orchestration endpoints to telephony, CRM/DMS and SMS adapters without changing the deterministic booking contract.
+
+## 10. Current PoC boundaries
+
+- Browser microphone rather than live telephony
+- Hinglish demonstration using `hi-IN`
+- Seeded demo catalogue and dealer inventory, not a live DMS feed
+- Process-local session memory
+- Simulated SMS acknowledgement
+- No production identity, consent, retention or analytics layer
+
+These boundaries are intentionally visible in the deck and rollout plan.

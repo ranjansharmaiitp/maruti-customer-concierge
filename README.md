@@ -29,9 +29,10 @@ The UI is inspired by real automotive **HMI (Human-Machine Interface)** systems 
 
 | Deliverable | Location | Description |
 |---|---|---|
-| **Working Solution** | `main.py`, `sarvam_service.py`, `static/` | Full-stack FastAPI + HMI web application with STT, LLM, TTS, & Agentic Dispatch |
-| **Business Write-Up** | [`/docs/BUSINESS_WRITEUP.md`](./docs/BUSINESS_WRITEUP.md) | 6-part executive proposal for CTO/VP Operations (Problem, Why AI, Why Sarvam, ROI, Roadmap) |
-| **Architecture Diagram** | [`/docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.md) | Technical architecture, Mermaid system diagrams, component specs & failure handling |
+| **Working Solution** | `main.py`, `sarvam_service.py`, `database.py`, `static/` | Full-stack FastAPI application with Sarvam STT/TTS, deterministic orchestration and transactional booking |
+| **Business Write-Up** | [`BUSINESS_WRITEUP.md`](./docs/BUSINESS_WRITEUP.md) · [`PDF`](./docs/Maruti_Customer_Concierge_Business_Writeup.pdf) | Customer-ready CTO/VP Operations proposal covering problem, Sarvam fit, ROI assumptions, limitations and rollout |
+| **Executive Deck** | [`PPTX`](./docs/Maruti_Customer_Concierge_PreSales_Deck.pptx) · [`PDF`](./docs/Maruti_Customer_Concierge_PreSales_Deck.pdf) | Eight-slide pre-sales presentation with speaker-note sources |
+| **Architecture Diagram** | [`ARCHITECTURE.md`](./docs/ARCHITECTURE.md) · [`PNG`](./docs/architecture.png) | System context, sequence, data model, API surface and production path |
 | **API Setup & Docs** | `README.md` & `.env.example` | Installation guide, environment configuration, and API reference |
 
 ---
@@ -89,9 +90,13 @@ Car Ai/
 ├── requirements.txt          # Python dependencies
 ├── .env.example              # Template for .env setup
 ├── README.md                 # Project Overview & Setup Guide
-└── docs/
-    ├── BUSINESS_WRITEUP.md   # Executive proposal for CTO / VP Operations
-    └── ARCHITECTURE.md       # Technical Architecture & Mermaid diagrams
+├── docs/
+│   ├── BUSINESS_WRITEUP.md   # Executive proposal for CTO / VP Operations
+│   ├── ARCHITECTURE.md       # Technical architecture and Mermaid diagrams
+│   ├── architecture.png      # Rendered architecture summary
+│   ├── Maruti_Customer_Concierge_Business_Writeup.pdf
+│   ├── Maruti_Customer_Concierge_PreSales_Deck.pptx
+│   └── Maruti_Customer_Concierge_PreSales_Deck.pdf
 └── static/
     ├── index.html            # Automotive HMI frontend with Booking Modals
     ├── css/
@@ -244,8 +249,9 @@ empty.
 
 ## 📝 Document Links
 
-* 📄 **[Executive Business Proposal (PDF/MD)](./docs/BUSINESS_WRITEUP.md)** — Cost ROI, enterprise value, and 90-day rollout plan.
-* 🏗️ **[System Architecture & Sequence Diagrams](./docs/ARCHITECTURE.md)** — Detailed Mermaid workflow diagrams and API component specs.
+* 📄 **[Executive Business Write-Up](./docs/BUSINESS_WRITEUP.md)** · **[PDF](./docs/Maruti_Customer_Concierge_Business_Writeup.pdf)**
+* 📊 **[Pre-Sales Deck (PPTX)](./docs/Maruti_Customer_Concierge_PreSales_Deck.pptx)** · **[PDF](./docs/Maruti_Customer_Concierge_PreSales_Deck.pdf)**
+* 🏗️ **[System Architecture](./docs/ARCHITECTURE.md)** · **[Rendered Diagram](./docs/architecture.png)**
 
 ---
 

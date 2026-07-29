@@ -1,141 +1,145 @@
-# 📄 Enterprise Business Proposal & Executive Write-Up
-## **Car AI Doctor: Multilingual Voice & Agentic Vehicle Diagnostic Assistant**
+# Maruti Customer Concierge
 
-**Target Audience:** CTO, VP of Customer Experience, VP of Service Operations (Automotive OEMs, NBFC Auto Finance, Roadside Assistance & Service Chains)
-**Author:** Pre-Sales Engineer, Sarvam AI Stack Integration
-**Date:** July 2026
+## A Hinglish voice-to-booking proof of concept for automotive retail
 
----
+### Executive proposition
 
-### Executive Summary
+Customers who are ready to explore a new car often arrive through calls, web forms or dealer enquiries, but the journey still depends on an employee asking the same qualification questions, checking a separate availability system and creating a booking. The Maruti Customer Concierge demonstrates a more direct path: a customer speaks naturally in Hinglish, hears grounded model and dealership options, chooses a slot and location, provides contact details, and receives a confirmed test-drive booking ID without touching a form.
 
-India has over **300 Million registered vehicles**, with over **30 Million emergency roadside assistance calls, service inquiries, and break-down diagnostic queries** logged annually.
+The proof of concept combines Sarvam AI’s India-first voice stack with deterministic booking orchestration. Saaras v3 transcribes the conversation, Bulbul v3 speaks the response, FastAPI controls the workflow, and SQLite stores the dealer catalogue, fleet capacity, customers and confirmed bookings. The result is not just a talking bot; it is a voice interface connected to a transactional process.
 
-**Car AI Doctor** is an enterprise-grade, multilingual voice bot and agentic dispatch solution built on the **Sarvam AI Stack** (`saaras:v3`, `sarvam-105b`, `bulbul:v3`). It enables automotive manufacturers (OEMs), insurance providers, and service networks to automate Tier-1 automotive triage, accurately assess fault urgency, provide immediate step-by-step diagnostic checklists in regional Indian languages, and seamlessly schedule appointments with certified Master Technicians with an instant **Customer Reference ID**.
+## 1. The operational problem
 
----
+Automotive pre-sales operations must turn high-intent enquiries into scheduled showroom or home test drives. The current journey can create four avoidable points of friction:
 
-### 1. The Problem
+1. **Language and code-mixing:** customers may express intent more naturally in Hindi mixed with English model, location and time terms.
+2. **Repeated qualification:** model, dealership, date, time, location and contact details are often captured manually across multiple interactions.
+3. **Disconnected availability:** an agent may need to check a separate dealer or fleet system before committing a slot.
+4. **Weak closure:** if the interaction ends without a reference ID, both the customer and operations team lack a clear next step.
 
-Automotive OEMs and service networks in India face four major operational bottlenecks:
+The end user may be comfortable speaking but less willing to complete a long form. A voice-first assistant reduces interface effort while preserving an auditable booking record.
 
-1. **High Call Center Costs:**
-   Inbound helpline calls cost between **₹70 – ₹120 per call** with human agents. A OEM handling 500,000 monthly service & emergency breakdown calls incurs over **₹4.5 Crore/month** in support overheads.
-2. **Language & Digital Literacy Barriers:**
-   Over 70% of vehicle owners and commercial drivers across Tier-2, Tier-3, and rural India prefer communicating in regional languages (Hindi, Tamil, Telugu, Marathi, etc.) or code-mixed Hinglish. Traditional key-press IVRs have a **65% drop-off rate**.
-3. **Safety Risks & Misdiagnosis:**
-   Drivers frequently ignore critical dashboard warning lights (e.g., oil pressure, engine overheating) due to a lack of immediate understanding, leading to catastrophic engine damage and roadside accidents.
-4. **Friction in Service Booking:**
-   Converting a breakdown inquiry into a scheduled garage service currently requires multi-touch manual dispatch, leading to lost service revenue for dealerships.
+## 2. Why an AI voice workflow
 
----
+A traditional IVR is reliable but forces customers through rigid menus. A general chatbot is flexible but can invent stock, skip mandatory fields or repeat questions. This proof of concept uses a hybrid:
 
-### 2. Why AI?
+- Voice recognition accepts natural Hinglish rather than keypad navigation.
+- The customer can say “कल दोपहर दो बजे,” “द्वारका सेक्टर 12,” or a model alias in one turn.
+- A deterministic state machine decides what information is still missing and asks only the next relevant question.
+- Dealer, model and slot responses are grounded in the database.
+- Booking is committed transactionally only after validation.
 
-A **Voice-First AI Agent + Agentic Workflow** is uniquely suited for automotive customer support:
+This approach provides the accessibility of conversation with the operational control expected from an enterprise workflow.
 
-* **Zero Friction for Drivers:** Drivers do not need to read complex manuals or navigate apps while stranded. They press a button and speak naturally in their native language.
-* **Instant Automated Triage:** The AI classifies fault severity into **PULL OVER IMMEDIATELY**, **CAUTION**, or **SAFE TO DRIVE** within seconds, ensuring driver safety.
-* **Autonomous Downstream Actions:** The agent doesn't just answer questions; it executes agentic workflows — generating a unique **Customer Reference ID** (`REF-XXXXXX`), assigning certified Master Technicians, and updating service queue databases automatically.
+## 3. Why Sarvam AI
 
----
+Sarvam is central to the experience rather than an add-on:
 
-### 3. Why Sarvam AI?
+| Requirement | Sarvam role | Enterprise relevance |
+|---|---|---|
+| Hinglish customer speech | Saaras v3 STT | Captures Indian language and English automotive terms in one interaction |
+| Natural spoken reply | Bulbul v3 TTS with the Shubh voice | Makes the workflow usable as a phone-call experience, not only a chat UI |
+| Open-ended assistance | Sarvam Chat Completions as the flexible response layer | Supports future product questions and exception handling while transactions stay deterministic |
+| Language expansion | Sarvam’s India-language stack | Creates a path to regional deployment using the same orchestration contract |
 
-Generic global AI platforms (OpenAI, ElevenLabs, Whisper) fall short in the Indian automotive context due to language nuances, latency, and high cost. **Sarvam AI provides unmatched competitive advantages:**
+The architectural advantage is the combination of India-focused speech capability and a single vendor path for STT, TTS, translation and LLM services. In production discovery, Sarvam latency, accuracy, deployment options, data handling and commercial terms should be validated against the customer’s security and scale requirements.
 
-| Requirement | Generic Global AI (OpenAI / Whisper) | **Sarvam AI Stack** | Business Impact |
-|---|---|---|---|
-| **Regional Speech Recognition** | Poor accuracy on Indian accents, road background noise, and regional dialects | **Sarvam `saaras:v3`** — Native ASR across 10+ Indian languages + Hinglish | 94%+ transcription accuracy in noisy environments |
-| **Reasoning & Diagnostic LLM** | Expensive API costs, high latency for long prompts | **Sarvam `sarvam-105b`** — Optimized for Indian regional reasoning & automotive context | Sub-second diagnostic reasoning, 80% lower API cost |
-| **Natural Voice Synthesis** | Robotic Hindi/Tamil voices, un-natural cadence | **Sarvam `bulbul:v3`** — Expressive regional voices (Shubh & Shreya presets) | High customer trust and brand alignment |
-| **Data Sovereignty & Latency** | Servers in US/EU, data privacy concerns, high network RTT | **MeitY Compliant** — India-hosted infrastructure, ultra-low latency | Regulatory compliance for Indian enterprises |
+## 4. What the proof of concept demonstrates
 
----
+The Hinglish demo completes one deep enterprise journey:
 
-### 4. Architecture Summary
-
-```
- ┌────────────────────────────────────────────────────────────────────────┐
- │                              DRIVER / USER                             │
- │    Speaks vehicle symptoms via HMI Infotainment Touchscreen / Mobile   │
- └───────────────────────────────────┬────────────────────────────────────┘
-                                     │
-                                     ▼
- ┌────────────────────────────────────────────────────────────────────────┐
- │                     VOICE PIPELINE (Sarvam STT)                        │
- │  `saaras:v3` Transcribes speech audio in Hindi/Tamil/Telugu/Hinglish   │
- └───────────────────────────────────┬────────────────────────────────────┘
-                                     │
-                                     ▼
- ┌────────────────────────────────────────────────────────────────────────┐
- │                  DIAGNOSTIC REASONING ENGINE (Sarvam LLM)               │
- │  `sarvam-105b` Analyzes symptoms against automotive knowledge base:    │
- │   • Categorizes Urgency (PULL OVER / CAUTION / SAFE)                   │
- │   • Generates 9-Segment LED Confidence Score                        │
- │   • Builds 4-Step Actionable Checklist                                 │
- └───────────────────────────────────┬────────────────────────────────────┘
-                                     │
-                                     ▼
- ┌────────────────────────────────────────────────────────────────────────┐
- │                  AGENTIC DISPATCH & WORKFLOW ENGINE                   │
- │  • Generates Unique Customer Reference ID (`REF-849204`)              │
- │  • Assigns Master Technician & Scheduled Call Time                     │
- │  • Saves booking record to Enterprise Database                        │
- └───────────────────────────────────┬────────────────────────────────────┘
-                                     │
-                                     ▼
- ┌────────────────────────────────────────────────────────────────────────┐
- │                     VOICE SYNTHESIS (Sarvam TTS)                       │
- │  `bulbul:v3` Batched synthesis reads diagnostic checklist & booking    │
- │   confirmation aloud in driver's native language                       │
- └────────────────────────────────────────────────────────────────────────┘
+```text
+Customer intent
+→ model discovery and selection
+→ dealer matching
+→ date/time and home/dealership choice
+→ name, mobile and address capture
+→ live slot revalidation
+→ transactional booking
+→ spoken TD-XXXXXXXX reference ID
 ```
 
+The local database contains dealerwise Maruti models, sales inventory, test-drive fleet records and datewise capacity. The workflow automatically books after the address is captured; the customer does not need to click a confirmation form. It also reminds the customer to keep the original driving licence and original Aadhaar or PAN available, without collecting document numbers in the conversation.
+
+## 5. Illustrative business case
+
+The following model is an **illustrative discovery hypothesis**, not a claimed Maruti baseline. Replace the inputs with contact-centre, dealer and Sarvam commercial data before an investment decision.
+
+| Assumption | Illustrative value |
+|---|---:|
+| Inbound pre-sales interactions | 10,000 per month |
+| Share eligible for automated test-drive flow | 60% |
+| Fully loaded assisted interaction cost | ₹60 |
+| Voice-AI interaction cost | ₹12 |
+| Direct saving per automated interaction | ₹48 |
+
+**Monthly direct saving**
+
+`10,000 × 60% × (₹60 − ₹12) = ₹2.88 lakh`
+
+**Annualised direct saving**
+
+`₹2.88 lakh × 12 = ₹34.56 lakh`
+
+This excludes potential upside from extended operating hours, faster response and higher test-drive completion. A one-percentage-point improvement at 10,000 enquiries would create 100 additional test-drive opportunities per month; the revenue value should be calculated using the customer’s test-drive-to-sale conversion and contribution margin.
+
+The pilot should measure:
+
+- booking completion rate;
+- cost per confirmed booking;
+- median time from intent to booking;
+- STT correction and repeated-question rate;
+- slot conflict and failure rate;
+- human handoff rate;
+- test-drive attendance and downstream retail conversion.
+
+## 6. Limitations and production gaps
+
+The current build is a proof of concept:
+
+- The demonstrated experience is Hinglish in a browser; telephony is not yet connected.
+- Dealer, model and availability data are seeded for the demo rather than sourced from a live DMS.
+- Session state is stored in process memory and transactional data in SQLite.
+- SMS delivery is simulated in the customer message.
+- Production consent, authentication, PII retention, analytics and monitoring controls are not implemented.
+- Free-form LLM responses require additional evaluation and guardrails before handling commercial commitments.
+
+## 7. Recommended 90-day rollout
+
+### Days 0–30 — Validate and integrate
+
+- Agree the priority customer journey, success metrics and handoff policy.
+- Connect one source of truth for dealerships, models, fleet and slots.
+- Validate Sarvam STT/TTS quality on real consented Hinglish call samples.
+- Define security, PII, retention, audit and consent requirements.
+- Replace the SMS simulation with a sandboxed provider integration.
+
+### Days 31–60 — Harden the workflow
+
+- Move to managed Postgres and Redis.
+- Add telephony, CRM/DMS updates, delivery receipts and agent handoff.
+- Implement observability for latency, accuracy, state retries and booking outcomes.
+- Add controlled exception handling and regression tests for production utterances.
+- Validate one additional Indian language without changing the booking transaction.
+
+### Days 61–90 — Run a measured pilot
+
+- Launch with two dealerships and a bounded traffic cohort.
+- Compare voice automation with the current enquiry-to-booking funnel.
+- Review failed transcripts and workflow drop-offs weekly.
+- Tune prompts, alias dictionaries, VAD thresholds and staffing handoffs.
+- Make the scale decision against agreed cost, completion, quality and compliance gates.
+
+## Recommendation
+
+Proceed with a two-dealer pilot focused on the single metric that matters first: **confirmed test-drive bookings completed through voice without human re-entry**. The proof of concept already demonstrates the core technical path. The next investment should be in live-system integration, measurement and operational controls rather than additional demo breadth.
+
 ---
 
-### 5. ROI & Business Case
+**Prepared for:** CTO / VP Operations review
 
-#### Operational Assumptions:
-* **Target Enterprise:** Mid-sized Automotive OEM or Service Network.
-* **Monthly Volume:** 100,000 inbound customer diagnostic & breakdown calls.
-* **Baseline Human Cost:** ₹80 per call center interaction.
-* **AI Automation Target:** 75% Tier-1 call deflection without human intervention.
+**Use case:** Maruti customer pre-sales and test-drive booking
 
-#### Financial Projection:
+**Demo scope:** Hinglish browser voice interaction
 
-| Metric | Current (Human Call Center) | Proposed (Car AI Doctor + Sarvam) | Impact |
-|---|---|---|---|
-| **Monthly Inbound Calls** | 100,000 | 100,000 | — |
-| **Deflected by AI (75%)** | 0 | 75,000 calls | **75% Deflection** |
-| **Cost per Deflected Call** | ₹80 | ₹12 (Sarvam API + Infra) | **85% Cost Reduction** |
-| **Monthly Spend (75k calls)** | ₹60,000,000 (₹60 Lakhs) | ₹9,00,000 (₹9 Lakhs) | **₹51 Lakhs Saved / Month** |
-| **Annualized Savings** | — | — | **₹6.12 Crore / Year** |
-| **Service Booking Conversion** | 18% (manual callbacks) | 34% (instant Ref ID dispatch) | **+88% Booking Uplift** |
-
----
-
-### 6. Limitations & 90-Day Production Roadmap
-
-#### Current PoC Scope & Limitations:
-* In-memory session and booking storage (to be replaced with PostgreSQL / Redis).
-* Microphone audio capture via web browser MediaRecorder (to be extended to telephony IVR).
-
-#### 90-Day Enterprise Production Rollout Plan:
-
-```
-  DAYS 1–30: INTEGRATION & TELEPHONY
-  ├── Connect Exotel / Plivo / Twilio SIP Trunking for PSTN Phone Calls
-  ├── Replace in-memory database with PostgreSQL + Redis session store
-  └── Fine-tune Sarvam-105b prompt on OEM-specific vehicle DTC codes
-
-  DAYS 31–60: ENTERPRISE CRM & DMS BINDING
-  ├── Two-way sync with Salesforce / SAP Dealer Management Systems (DMS)
-  ├── Automatic SMS & WhatsApp dispatch of Reference IDs with GPS location
-  └── Integration with OBD-II Bluetooth telemetry streams
-
-  DAYS 61–90: PILOT LAUNCH & SCALING
-  ├── Pilot rollout across 50 dealerships in Maharashtra, Delhi-NCR & Tamil Nadu
-  ├── Real-time agent escalation for Critical PULL OVER emergencies
-  └── Full production deployment across nationwide roadside assistance fleet
-```
+**Implementation:** Sarvam Saaras v3 + Bulbul v3, FastAPI, deterministic workflow and SQLite
